@@ -39,11 +39,15 @@ class Synchronize(object):
     def __init__(self,Target):
         self.connection = Target
 
-    def diffsec(Initial):
-        Now = time()
-        return Now-Initial
-
     def Wait(self,Message):
         while True:
             if (self.connection.recv(32) == Message):
                 break
+
+    def Check(self,Message1,Message2):
+        Feed = self.connection.recv(32)
+        if (Feed == Message1):
+            return 1
+        elif (Feed == Message2):
+            return 2
+        return 3
