@@ -1,4 +1,4 @@
-/*	This is the 2-Dimension Description of the Object   */
+#include <SDL2/SDL.h>
 
 class Position {
 	public:
@@ -31,6 +31,18 @@ void Position::rangeCheck(int Max_X, int Max_Y){
 	else if (Y < 0)
 		Y = 0;
 }
+
+
+int EventDetection(SDL_Event event){
+	while (SDL_PollEvent(&event)){
+		if (event.type == SDL_KEYDOWN){
+			SDL_KeyboardEvent Key = event.key;
+			return Key.keysym.scancode;
+		}
+	}
+	return 0;
+}
+
 
 bool Determine_Location(Position Object, Position Goal){
 	if (Object.X + Object.W >= Goal.X && Object.X <= Goal.X + Goal.W

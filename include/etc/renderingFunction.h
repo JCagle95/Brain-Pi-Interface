@@ -1,7 +1,6 @@
 #include <iostream>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
-#include <SDL2/SDL_ttf.h>
 
 void logSDLError(std::ostream &os, const std::string &msg){
 	os << msg << " error: " << SDL_GetError() << std::endl;
@@ -23,14 +22,4 @@ void renderTexture(SDL_Texture *tex, SDL_Renderer *ren, int x, int y, int w, int
 	dst.y = y;
 
 	SDL_RenderCopy(ren, tex, NULL, &dst);
-}
-
-int EventDetection(SDL_Event event){
-	while (SDL_PollEvent(&event)){
-		if (event.type == SDL_KEYDOWN){
-			SDL_KeyboardEvent Key = event.key;
-			return Key.keysym.scancode;
-		}
-	}
-	return 0;
 }
