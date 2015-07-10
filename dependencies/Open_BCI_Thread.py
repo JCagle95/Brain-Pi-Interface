@@ -1,11 +1,34 @@
+###################################
+# The following codes are the modification of open_bci_v3.py
+# Modified class and included threading option during init
+# Jackson Cagle, 2015
+###################################
+
+"""
+Core OpenBCI object for handling connections and samples from the board.
+
+EXAMPLE USE:
+
+def handle_sample(sample):
+  print(sample.channels)
+
+board = OpenBCIBoard()
+board.print_register_settings()
+board.start(handle_sample)
+
+NOTE: If daisy modules is enabled, the callback will occur every two samples, hence "packet_id" will only contain even numbers. As a side effect, the sampling rate will be divided by 2.
+
+FIXME: at the moment we can just force daisy mode, do not check that the module is detected.
+"""
 import serial
 import struct
 import numpy as np
 import time
-import threading
 import timeit
+import threading
 import atexit
 import logging
+
 
 SAMPLE_RATE = 250.0  # Hz
 START_BYTE = 0xA0  # start of data packet
@@ -35,11 +58,18 @@ command_biasFixed = "~";
 '''
 
 class OpenBCIBoard_Recording(threading.Thread):
+  """
+
+  Handle a connection to an OpenBCI board.
+
+  Args:
+    port: The port to connect to.
+    baud: The baud of the serial connection.
+    daisy: Enable or disable daisy module and 16 chans readings
+  """
 
   def __init__(self, port=None, baud=115200, filter_data=True,
-    scaled_output=True, daisy=False, log=True, Queue=None):
-    threading.Thread.__init__(self)
-    self.active_time = timeit.default_timer()
+    scaled_output=True, daisy=False, log=True, thread=False, Queue=None, binSize=50):
     if not port:
       port = find_port()
       if not port:
@@ -49,6 +79,14 @@ class OpenBCIBoard_Recording(threading.Thread):
     self.ser = serial.Serial(port, baud)
     print("Serial established...")
 
+    self.active_time = timeit.default_timer()
+    if thread:
+      threading.Thread.__init__(self)
+      if Queue == None:
+        raise OSError('Please provide Queue for Data if threading')
+      else:
+        self.Queue = Queue
+    
     #Initialize 32-bit board, doesn't affect 8bit board
     self.ser.write('v');
 
@@ -66,7 +104,7 @@ class OpenBCIBoard_Recording(threading.Thread):
     self.last_odd_sample = OpenBCISample(-1, [], []) # used for daisy
     self.log = log
     self.log_packet_count = 0
-    self.Queue = Queue
+    self.binSize = binSize
 
     #Disconnects from board when terminated
     atexit.register(self.disconnect)
@@ -86,25 +124,73 @@ class OpenBCIBoard_Recording(threading.Thread):
   def getNbAUXChannels(self):
     return  self.aux_channels_per_sample
 
+  # The threading function. Queue the sample bin for other processing
   def run(self):
-    
     if not self.streaming:
       self.ser.write('b')
       self.streaming = True
 
-    EEG_Results = np.tile(np.arange(50),(9,1)).T
-    
+    EEG_Results = np.tile(np.arange(self.binSize),(9,1)).T
+
     while self.streaming:
-      for n in range(50):
+      for n in range(self.binSize):
         sample = self._read_serial_binary(self.active_time)
         EEG_Results[n,0] = sample.time
         EEG_Results[n,range(1,9)] = sample.channel_data
       self.Queue.put(EEG_Results)
-    
+
     self.stop()
     self.disconnect()
 
-      
+  # This is used for main program to stop the thread and exit serial safely
+  def stop_streaming(self):
+    self.streaming = False
+
+  def start_streaming(self, callback, lapse=-1):
+    """
+    Start handling streaming data from the board. Call a provided callback
+    for every single sample that is processed (every two samples with daisy module).
+
+    Args:
+      callback: A callback function -- or a list of functions -- that will receive a single argument of the
+          OpenBCISample object captured.
+    """
+    if not self.streaming:
+      self.ser.write('b')
+      self.streaming = True
+
+    start_time = timeit.default_timer()
+
+    # Enclose callback funtion in a list if it comes alone
+    if not isinstance(callback, list):
+      callback = [callback]
+    
+    while self.streaming:
+      # read current sample
+      sample = self._read_serial_binary()
+      # if a daisy module is attached, wait to concatenate two samples (main board + daisy) before passing it to callback
+      if self.daisy:
+        # odd sample: daisy sample, save for later
+        if ~sample.id % 2:
+          self.last_odd_sample = sample
+        # even sample: concatenate and send if last sample was the fist part, otherwise drop the packet
+        elif sample.id - 1 == self.last_odd_sample.id:
+          # the aux data will be the average between the two samples, as the channel samples themselves have been averaged by the board
+          avg_aux_data = list((np.array(sample.aux_data) + np.array(self.last_odd_sample.aux_data))/2)
+          whole_sample = OpenBCISample(sample.id, sample.channel_data + self.last_odd_sample.channel_data, avg_aux_data)
+          for call in callback:
+            call(whole_sample)
+      else:
+        for call in callback:
+          call(sample)
+      if(lapse > 0 and timeit.default_timer() - start_time > lapse):
+        self.stop();
+      if self.log:
+        self.log_packet_count = self.log_packet_count + 1;
+
+
+  
+  
   """
     PARSER:
     Parses incoming data packet into OpenBCISample.
@@ -113,13 +199,15 @@ class OpenBCIBoard_Recording(threading.Thread):
     0xA0|0-255|8, 3-byte signed ints|3 2-byte signed ints|0xC0
 
   """
+  # Added initial time as indexing the moment that the last byte read correctly
   def _read_serial_binary(self, initial_time, max_bytes_to_skip=3000):
     def read(n):
       b = self.ser.read(n)
+      # print b
       return b
 
     for rep in xrange(max_bytes_to_skip):
-      
+
       #---------Start Byte & ID---------
       if self.read_state == 0:
         b = read(1)
@@ -185,7 +273,7 @@ class OpenBCIBoard_Recording(threading.Thread):
         val = struct.unpack('B', read(1))[0]
         self.read_state = 0 #read next packet
         if (val == END_BYTE):
-          sample = OpenBCISample(packet_id, channel_data, aux_data,(timeit.default_timer()-initial_time)*1000)
+          sample = OpenBCISample(packet_id, channel_data, aux_data, (timeit.default_timer()-initial_time)*1000.0)
           return sample
         else:
           self.warn("Warning: Unexpected END_BYTE found <%s> instead of <%s>,\
@@ -205,9 +293,6 @@ class OpenBCIBoard_Recording(threading.Thread):
       logging.warning(text)
     print("Warning: %s" % text)
 
-  def stop_streaming(self):
-    self.streaming = False
-
   def stop(self):
     print("Stopping streaming...\nWait for buffer to flush...")
     self.streaming = False
@@ -221,6 +306,13 @@ class OpenBCIBoard_Recording(threading.Thread):
     if (self.ser.isOpen()):
       self.warn("Closing Serial...")
       self.ser.close()
+       
+
+  """
+
+      SETTINGS AND HELPERS
+
+  """
 
   def print_incoming_text(self):
     """
@@ -355,11 +447,13 @@ class OpenBCIBoard_Recording(threading.Thread):
       if channel is 16 and self.daisy:
         self.ser.write('i')
 
+# Added the time variable
 class OpenBCISample(object):
   """Object encapulsating a single sample from the OpenBCI board."""
-  def __init__(self, packet_id, channel_data, aux_data, receive_time=0.0):
+  def __init__(self, packet_id, channel_data, aux_data, receive_time = 0.0):
     self.id = packet_id;
     self.channel_data = channel_data;
     self.aux_data = aux_data;
     self.time = receive_time
+
 
