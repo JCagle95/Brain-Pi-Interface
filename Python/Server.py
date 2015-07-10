@@ -39,7 +39,7 @@ CALIBRATION_STAGE2 = 15
 CALIBRATION_END = 19
 Max_Trials = 50
 Experiment_ID = strftime("%b_%d_%Y_%H",gmtime())
-ipAddress = '192.168.0.17'
+ipAddress = '<Your IP Address>'
 port = '/dev/OpenBCI'
 
 print '--------------\n'
@@ -48,6 +48,7 @@ print ipAddress + '\n'
 print '--------------\n'
 
 # Setup the total number of Raspberry Pi
+# Current Version support only one Server and one Client
 #Pi_Number = int(raw_input("How many Raspberry Pi will you use? (Including Server): "))
 Pi_Number = 2
 Feedback_Log = list(range(Pi_Number))
