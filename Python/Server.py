@@ -15,6 +15,10 @@ import timeit
 import numpy as np
 from BCI_Modules import *
 
+def Run_Feedback():
+    # Thread added to active Feedback dispay
+    subprocess.call(['../bin/FeedbackDisplay.exe'])
+
 def FeatureExtraction(Sample,Feature,Data_Array):
     # Append the data
     Data_Array = np.append(Data_Array,Sample,axis=0)
@@ -78,6 +82,9 @@ connection, client_address = server.accept()
 print 'Connected\n'
 
 Sync = Synchronize(connection)
+
+Display_Thread = threading.Thread(target=Run_Feedback)
+Display_Thread.start()
 
 # Wait for the Feedback Display to start.
 FIFO.Wait(Feedback_Log[0],"Timer on")
