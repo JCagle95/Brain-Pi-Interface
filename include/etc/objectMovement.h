@@ -32,7 +32,6 @@ void Position::rangeCheck(int Max_X, int Max_Y){
 		Y = 0;
 }
 
-
 int EventDetection(SDL_Event event){
 	while (SDL_PollEvent(&event)){
 		if (event.type == SDL_KEYDOWN){
@@ -42,7 +41,6 @@ int EventDetection(SDL_Event event){
 	}
 	return 0;
 }
-
 
 bool Determine_Location(Position Object, Position Goal){
 	if (Object.X + Object.W >= Goal.X && Object.X <= Goal.X + Goal.W
