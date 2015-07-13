@@ -9,6 +9,7 @@ import Open_BCI_Thread as bci
 import Queue
 import scipy.io as sio
 import socket
+from random import shuffle
 from scipy.fftpack import fft
 from time import sleep, time, gmtime, strftime
 import timeit
@@ -32,8 +33,8 @@ def FeatureExtraction(Sample,Feature,Data_Array):
     return (Feature,Data_Array)
 
 # Defined Task variable
-Movement_Range_Min = -20.000
-Movement_Range_Max = 20.000
+Movement_Range_Min = -5.000
+Movement_Range_Max = 5.000
 Channel = 4
 TRIAL_START = 254
 TRIAL_END = 192
@@ -45,6 +46,9 @@ Max_Trials = 50
 Experiment_ID = strftime("%b_%d_%Y_%H",gmtime())
 ipAddress = '<Your IP Address>'
 port = '/dev/OpenBCI'
+Trial_Type = [[i%4] for i in range(50)]
+shuffle(Trial_Type)
+shuffle(Trial_Type)
 
 print '--------------\n'
 print Experiment_ID + '\n'
@@ -60,8 +64,10 @@ Feedback_Log = list(range(Pi_Number))
 # Cleanup the content of the text files
 Classifier_Results = '../resource/FIFO/Classifier_Results.txt'
 Trigger_Log = '../resource/FIFO/Trigger_Log.txt'
+Trial_Info = '../resource/FIFO/Trial_Information.txt'
 FIFO.Erase(Classifier_Results)
 FIFO.Erase(Trigger_Log)
+FIFO.Erase(Trial_Info)
 for n in range(Pi_Number):
     Feedback_Log[n] = '../resource/FIFO/Feedback_Log_' + str(n) + '.txt'
     FIFO.Erase(Feedback_Log[n])
@@ -126,6 +132,12 @@ while len(EEG_Recording) < 250*10:
         Feature.append(np.sum(Power[Frequency_Band]))
 
 FIFO.Rewrite(Trigger_Log,'Calibration Stage2')
+if FIFO.Check(Feedback_Log[0],"Display End"):
+    Sync.disconnect()
+    Board.stop_streaming()
+    sio.savemat(Experiment_ID + '.mat',{'EEG':EEG_Recording,'Trigger':Trigger})
+    Board.join()
+
 Trigger = np.concatenate((Trigger,np.array([[timeit.default_timer()-EEG_Time,CALIBRATION_STAGE2]])))
 
 while len(EEG_Recording) < 250*20:
@@ -138,13 +150,27 @@ Min_Movement = np.array(Feature).min()
 Classifier = (Movement_Range_Max-Movement_Range_Min)/(Max_Movement-Min_Movement)
 
 FIFO.Rewrite(Trigger_Log, 'Calibration End')
+if FIFO.Check(Feedback_Log[0],"Display End"):
+    Sync.disconnect()
+    Board.stop_streaming()
+    sio.savemat(Experiment_ID + '.mat',{'EEG':EEG_Recording,'Trigger':Trigger})
+    Board.join()
+
 Trigger = np.concatenate((Trigger,np.array([[timeit.default_timer()-EEG_Time,CALIBRATION_END]])))
 
 """""""""""""""""""""""""""""""""""""""""""""
 Trial Start. Classfication Start
 """""""""""""""""""""""""""""""""""""""""""""
 
-for x in range(1,Max_Trials):
+for x in range(Max_Trials):
+    
+    if FIFO.Check(Feedback_Log[0],"Display End"):
+        break
+    
+    # Send Trial Info and wait 1 second for display
+    FIFO.Rewrite(Trial_Info,str(Trial_Type[x][0]))
+    sleep(1)
+
     # Clean up the Queue to keep Data in real time
     while not Data_Queue.empty():
         Sample = Data_Queue.get()
@@ -153,10 +179,7 @@ for x in range(1,Max_Trials):
     # Signal Start
     Start_Point = time()
     FIFO.Rewrite(Trigger_Log,"Trial Start")
-    Trigger = np.concatenate((Trigger,np.array([[timeit.default_timer()-EEG_Time,TRIAL_START]])))
-
-    if FIFO.Check(Feedback_Log[0],"Display End"):
-        break            
+    Trigger = np.concatenate((Trigger,np.array([[timeit.default_timer()-EEG_Time,TRIAL_START]])))           
     
     while ((time()-Start_Point) < 5):
         # Extract Feature
@@ -180,7 +203,7 @@ for x in range(1,Max_Trials):
             FIFO.Erase(Feedback_Log[0])
             break
         connection.sendall('Done')
-    
+    sleep(1)
     FIFO.Rewrite(Trigger_Log,"Trial End")
     Trigger = np.concatenate((Trigger,np.array([[timeit.default_timer()-EEG_Time,TRIAL_END]])))
     
