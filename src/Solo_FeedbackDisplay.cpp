@@ -127,9 +127,9 @@ int main(int, char**){
 
 	// Obtain the timer as well as the logging files
 	const std::string Classifier = getResourcePath("FIFO") + "Classifier_Results.txt";
-	const std::string Trial_Info = getResourcePath("FIFO") + "Trial_Inforamtion.txt";
+	const std::string Trial_Info = getResourcePath("FIFO") + "Trial_Information.txt";
 	const std::string Trigger_Log = getResourcePath("FIFO") + "Trigger_Log.txt";
-	const std::string Feedback = getResourcePath("FIFO") + "Feedback_Log_0.txt";
+	const std::string Feedback = getResourcePath("FIFO") + "Solo_Feedback_Log.txt";
 	Sync_Send(Feedback, "Timer on");
 	Sync_Wait(Trigger_Log, "All Set", event);
 	SDL_RenderClear(renderer);
@@ -206,6 +206,21 @@ int main(int, char**){
 
 	while(!(Sync_Check(Trigger_Log,"ALL FINISH")||Finishing)){
 		// Determine the type of Trial
+		if (!Sync_Wait(Trigger_Log, "Ready", event)){
+			Sync_Send(Feedback,"Display End");
+			SDL_DestroyWindow(window);
+			SDL_DestroyRenderer(renderer);
+			SDL_DestroyTexture(background);
+			SDL_DestroyTexture(instruction);
+			SDL_DestroyTexture(sphere);
+			SDL_DestroyTexture(background2);
+			SDL_DestroyTexture(sphere2);
+			SDL_DestroyTexture(Target2);
+			SDL_DestroyTexture(Target);
+			SDL_DestroyTexture(instruction2);
+			SDL_Quit();
+			return 1;
+		}
 		switch (Read_Trial(Trial_Info)){
 		case 0:
 			Goal.Set(0, Centroid.Y - TARGET_WIDTH / 2, TARGET_HEIGHT, TARGET_WIDTH);
@@ -279,6 +294,9 @@ int main(int, char**){
 					}
 				}
 			}
+			if (Sync_Check(Trigger_Log,"Trial End")){
+				Next_Trial = true;
+			}
 			// Check for Break or other commands
 			if (EventDetection(event) == SDL_SCANCODE_Q){
 				Next_Trial = true;
@@ -290,9 +308,6 @@ int main(int, char**){
 		SDL_RenderClear(renderer);
 		renderTexture(trialEnd, renderer, (SCREEN_WIDTH-SCREEN_HEIGHT)/2, 0, SCREEN_HEIGHT, SCREEN_HEIGHT);
 		SDL_RenderPresent(renderer);
-		if (!Sync_Wait(Trigger_Log,"Trial End",event)){
-			break;
-		}
 	}
 	
 	// Cleanning up
