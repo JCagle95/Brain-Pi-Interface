@@ -8,11 +8,9 @@
 #include <etc/res_path.h>
 #include <etc/objectMovement.h>
 #include <etc/renderingFunction.h>
-#include <etc/cleanup.h>
 
 int SCREEN_WIDTH;
 int SCREEN_HEIGHT;
-const int MAX_TRIALS = 50;
 
 std::string to_string(double value){
 	std::ostringstream stm;
@@ -49,9 +47,12 @@ void Sync_Send(std::string File, std::string Message){
 }
 
 int Read_Trial(std::string File){
-	std::string New;
-	std::ifstream FileInput(File);
-	getline(FileInput,New);
+	std::string New = "";
+	while (New == ""){
+		std::ifstream FileInput(File);
+		getline(FileInput,New);
+		FileInput.close();
+	}
 	return atoi(New.c_str());
 }
 
@@ -72,7 +73,7 @@ int main(int, char**){
 		logSDLError(std::cout, "SDL_Init");
 		return 1;
 	}
-	SDL_Window *window = SDL_CreateWindow("Moving Window", 10, 500, 720, 480, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+	SDL_Window *window = SDL_CreateWindow("Moving Window", 100, 100, 1440, 810, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
 	if (window == nullptr){
 		logSDLError(std::cout, "CreateWindow");
 		SDL_Quit();
@@ -91,7 +92,6 @@ int main(int, char**){
 	SDL_Texture *instruction = loadTexture(resPath + "instruction.png", renderer);
 	SDL_Texture *background = loadTexture(resPath + "SyncStart.png", renderer);
 	SDL_Texture *background2 = loadTexture(resPath + "SyncEnd.png", renderer);
-	SDL_Texture *trial_background = loadTexture(resPath + "trial_background.png", renderer);
 	SDL_Texture *instruction2 = loadTexture(resPath + "instruction2.png", renderer);
 	SDL_Texture *sphere = loadTexture(resPath + "sphere.png", renderer);
 	SDL_Texture *Target = loadTexture(resPath + "Target.png", renderer);
@@ -102,9 +102,19 @@ int main(int, char**){
 	SDL_Event event;
 	
 	if (background == nullptr || background2 == nullptr || sphere == nullptr || instruction2 == nullptr || Target == nullptr || sphere2 == nullptr || Target2 == nullptr ||
-		trial_background == nullptr || trialStart == nullptr || trialEnd == nullptr || instruction == nullptr)
+		trialStart == nullptr || trialEnd == nullptr || instruction == nullptr)
 	{
-		cleanup(window,renderer,background,background2,instruction,sphere,instruction2,Target,trial_background);
+		SDL_DestroyWindow(window);
+		SDL_DestroyRenderer(renderer);
+		SDL_DestroyTexture(background);
+		SDL_DestroyTexture(instruction);
+		SDL_DestroyTexture(sphere);
+		SDL_DestroyTexture(background2);
+		SDL_DestroyTexture(sphere2);
+		SDL_DestroyTexture(Target2);
+		SDL_DestroyTexture(Target);
+		SDL_DestroyTexture(instruction2);
+		SDL_Quit();
 		SDL_Quit();
 		return 1;
 	}
@@ -128,9 +138,6 @@ int main(int, char**){
 
 	// flag used to stop the program execution
 	bool Next_Trial, Finishing;
-	double Trial_Start_Time;
-	int Trial_Type[MAX_TRIALS];
-	std::fill_n(Trial_Type, MAX_TRIALS, 1);
 	Finishing = false;
 
 	// Obtain Screen Size, Create position values for objects
@@ -145,7 +152,16 @@ int main(int, char**){
 	// Calibration
 	if (!Sync_Wait(Trigger_Log, "Calibration On", event)){
 		Sync_Send(Feedback,"Display End");
-		cleanup(window,renderer,background,background2,instruction,sphere,instruction2,Target,trial_background);
+		SDL_DestroyWindow(window);
+		SDL_DestroyRenderer(renderer);
+		SDL_DestroyTexture(background);
+		SDL_DestroyTexture(instruction);
+		SDL_DestroyTexture(sphere);
+		SDL_DestroyTexture(background2);
+		SDL_DestroyTexture(sphere2);
+		SDL_DestroyTexture(Target2);
+		SDL_DestroyTexture(Target);
+		SDL_DestroyTexture(instruction2);
 		SDL_Quit();
 		return 1;
 	}
@@ -155,7 +171,16 @@ int main(int, char**){
 	SDL_RenderPresent(renderer);	
 	if (!Sync_Wait(Trigger_Log, "Calibration Stage2", event)){
 		Sync_Send(Feedback,"Display End");
-		cleanup(window,renderer,background,background2,instruction,sphere,instruction2,Target,trial_background);
+		SDL_DestroyWindow(window);
+		SDL_DestroyRenderer(renderer);
+		SDL_DestroyTexture(background);
+		SDL_DestroyTexture(instruction);
+		SDL_DestroyTexture(sphere);
+		SDL_DestroyTexture(background2);
+		SDL_DestroyTexture(sphere2);
+		SDL_DestroyTexture(Target2);
+		SDL_DestroyTexture(Target);
+		SDL_DestroyTexture(instruction2);
 		SDL_Quit();
 		return 1;
 	}
@@ -165,7 +190,16 @@ int main(int, char**){
 	SDL_RenderPresent(renderer);	
 	if (!Sync_Wait(Trigger_Log, "Calibration End", event)){
 		Sync_Send(Feedback,"Display End");
-		cleanup(window,renderer,background,background2,instruction,sphere,instruction2,Target,trial_background);
+		SDL_DestroyWindow(window);
+		SDL_DestroyRenderer(renderer);
+		SDL_DestroyTexture(background);
+		SDL_DestroyTexture(instruction);
+		SDL_DestroyTexture(sphere);
+		SDL_DestroyTexture(background2);
+		SDL_DestroyTexture(sphere2);
+		SDL_DestroyTexture(Target2);
+		SDL_DestroyTexture(Target);
+		SDL_DestroyTexture(instruction2);
 		SDL_Quit();
 		return 1;
 	}
@@ -173,16 +207,16 @@ int main(int, char**){
 	while(!(Sync_Check(Trigger_Log,"ALL FINISH")||Finishing)){
 		// Determine the type of Trial
 		switch (Read_Trial(Trial_Info)){
-		case 1:
+		case 0:
 			Goal.Set(0, Centroid.Y - TARGET_WIDTH / 2, TARGET_HEIGHT, TARGET_WIDTH);
 			break;
-		case 2:
+		case 1:
 			Goal.Set(SCREEN_WIDTH - TARGET_HEIGHT, Centroid.Y - TARGET_WIDTH / 2, TARGET_HEIGHT, TARGET_WIDTH);
 			break;
-		case 3:
+		case 2:
 			Goal.Set(Centroid.X - TARGET_WIDTH / 2, SCREEN_HEIGHT - TARGET_HEIGHT, TARGET_WIDTH, TARGET_HEIGHT);
 			break;
-		case 4:
+		case 3:
 			Goal.Set(Centroid.X - TARGET_WIDTH / 2, 0, TARGET_WIDTH, TARGET_HEIGHT);
 			break;
 		}
@@ -191,9 +225,18 @@ int main(int, char**){
 		SDL_RenderClear(renderer);
 		renderTexture(trialStart, renderer, (SCREEN_WIDTH-SCREEN_HEIGHT)/2, 0, SCREEN_HEIGHT, SCREEN_HEIGHT);
 		SDL_RenderPresent(renderer);
-		if Sync_Wait(Trigger_Log,"Trial Start", event){
+		if (!Sync_Wait(Trigger_Log,"Trial Start", event)){
 			Sync_Send(Feedback,"Display End");
-			cleanup(window,renderer,background,background2,instruction,sphere,instruction2,Target,trial_background);
+			SDL_DestroyWindow(window);
+			SDL_DestroyRenderer(renderer);
+			SDL_DestroyTexture(background);
+			SDL_DestroyTexture(instruction);
+			SDL_DestroyTexture(sphere);
+			SDL_DestroyTexture(background2);
+			SDL_DestroyTexture(sphere2);
+			SDL_DestroyTexture(Target2);
+			SDL_DestroyTexture(Target);
+			SDL_DestroyTexture(instruction2);
 			SDL_Quit();
 			return 1;
 		}
@@ -255,14 +298,15 @@ int main(int, char**){
 	// Cleanning up
 	Sync_Send(Feedback,"Display End");
 	SDL_DestroyWindow(window);
+	SDL_DestroyRenderer(renderer);
 	SDL_DestroyTexture(background);
 	SDL_DestroyTexture(instruction);
 	SDL_DestroyTexture(sphere);
-	SDL_DestroyTexture(instruction2);
+	SDL_DestroyTexture(background2);
 	SDL_DestroyTexture(sphere2);
 	SDL_DestroyTexture(Target2);
 	SDL_DestroyTexture(Target);
-	SDL_DestroyTexture(trial_background);
+	SDL_DestroyTexture(instruction2);
 	SDL_Quit();
 	return 0;
 }
