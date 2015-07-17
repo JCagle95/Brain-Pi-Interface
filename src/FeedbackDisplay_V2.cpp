@@ -12,12 +12,6 @@
 int SCREEN_WIDTH;
 int SCREEN_HEIGHT;
 
-std::string to_string(double value){
-	std::ostringstream stm;
-	stm << value;
-	return stm.str();
-}
-
 bool Sync_Wait(std::string File, std::string Message, SDL_Event event){
 	std::string New;
 	while(New != Message){
@@ -61,10 +55,22 @@ std::string DirectionalReader(std::string File, std::string Previous){
 	std::ifstream FileInput (File);
 	getline(FileInput,New);
 	FileInput.close();
-	if (New != Previous)
+	if (New != Previous && New.length() > 0)
 		return New;
 	else
 		return "No Update";
+
+}
+
+Feature DecodeString(std::string Line){
+	Feature Direction;
+	std::stringstream inputstream(Line);
+	std::string Parser;
+	for (int n = 0; n < 2; n++){
+		std::getline(inputstream, Parser, ',');
+		Direction.Results[n] = atoi(Parser.c_str());
+	}
+	return Direction;
 }
 
 int main(int, char**){
@@ -126,7 +132,8 @@ int main(int, char**){
 	SDL_RenderPresent(renderer);
 
 	// Obtain the timer as well as the logging files
-	const std::string Classifier = getResourcePath("FIFO") + "Classifier_Results.txt";
+	const std::string Feature1 = getResourcePath("FIFO") + "X_Direction.txt";
+	const std::string Feature2 = getResourcePath("FIFO") + "Y_Direction.txt";
 	const std::string Trial_Info = getResourcePath("FIFO") + "Trial_Information.txt";
 	const std::string Trigger_Log = getResourcePath("FIFO") + "Trigger_Log.txt";
 	const std::string Feedback = getResourcePath("FIFO") + "Feedback_Log_0.txt";
@@ -146,9 +153,11 @@ int main(int, char**){
 	const int TARGET_WIDTH = SCREEN_HEIGHT / 4;
 	const int TARGET_HEIGHT = TARGET_WIDTH / 6;
 	Centroid.Set(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, 0, 0);
-	int Direction [2];
-	std::string Previous, New;
-	
+	std::string Previous_X, Previous_Y, Current_X, Current_Y;
+	Feature X_Direction,Y_Direction;
+	X_Direction.Set(1,0);
+	X_Direction.Set(1,0);
+
 	// Calibration
 	if (!Sync_Wait(Trigger_Log, "Calibration On", event)){
 		Sync_Send(Feedback,"Display End");
@@ -203,6 +212,11 @@ int main(int, char**){
 		SDL_Quit();
 		return 1;
 	}
+
+
+	/******************************
+	 * The Actual Experiment Part *
+	******************************/
 
 	while(!(Sync_Check(Trigger_Log,"ALL FINISH")||Finishing)){
 		// Determine the type of Trial
@@ -261,17 +275,17 @@ int main(int, char**){
 		Next_Trial = false;
 		while (!Next_Trial){
 			// Listen to OpenBCI for Location Data
-			New = DirectionalReader(Classifier, Previous);
-			if (New != "No Update" & New.length() > 0){
-				Previous = New;
-				std::stringstream inputstream(Previous);
-				std::string Parser;
-				for (int n = 0; n < 2; n++){
-					std::getline(inputstream, Parser, ',');
-					Direction[n] = atoi(Parser.c_str());
-				}
+			Current_X = DirectionalReader(Feature1, Previous_X);
+			Current_Y = DirectionalReader(Feature2, Previous_Y);
+
+			if (Current_X != "No Update" && Current_Y != "No Update"){
+				Y_Direction = DecodeString(Current_Y);
+				X_Direction = DecodeString(Current_X);
+				Previous_X = Current_X;
+				Previous_Y = Current_Y;
+
 				for (int rate = 0; rate < 10; rate++){
-					Ball.Translocation(Direction[0],Direction[1]);
+					Ball.Translocation(X_Direction.Results[0],Y_Direction.Results[0]);
 					Ball.rangeCheck(SCREEN_WIDTH,SCREEN_HEIGHT);
 					SDL_RenderClear(renderer);
 					renderTexture(sphere, renderer, Ball.X, Ball.Y, Ball.W, Ball.H);
@@ -294,6 +308,7 @@ int main(int, char**){
 					}
 				}
 			}
+
 			if (Sync_Check(Trigger_Log,"Trial End")){
 				Next_Trial = true;
 			}
