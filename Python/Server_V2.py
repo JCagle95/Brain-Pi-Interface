@@ -20,7 +20,7 @@ from BCI_Modules import *
 
 def Run_Feedback():
     # Thread added to active Feedback dispay
-    subprocess.call(['../bin/FeedbackDisplay.exe'])
+    subprocess.call(['../bin/FeedbackDisplay'])
 
 def FeatureExtraction(Sample,Feature,Data_Array):
     # Append the data

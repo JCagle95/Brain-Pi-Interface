@@ -4,7 +4,7 @@
 # Jackson Cagle, 2015
 ############################################################
 
-import sys; sys.path.append('../dependencies')
+import sys; sys.path.append('../../dependencies')
 import Queue
 import Generic_Generator as gen
 import scipy.io as sio
