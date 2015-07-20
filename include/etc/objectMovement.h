@@ -1,14 +1,20 @@
-#include <SDL2/SDL.h>
+/*	This is the 2-Dimension Description of the Object   */
 
 class Position {
 	public:
 		int X, Y;
 		int W, H;
 		bool END;
-		
+
 		void Translocation(int, int);
 		void Set(int, int, int, int);
 		void rangeCheck(int, int);
+};
+
+class Feature{
+	public:
+		int Results[2];
+		void Set(int,int);
 };
 
 void Position::Translocation(int Horizontal_Change, int Vertical_Change){
@@ -32,14 +38,9 @@ void Position::rangeCheck(int Max_X, int Max_Y){
 		Y = 0;
 }
 
-int EventDetection(SDL_Event event){
-	while (SDL_PollEvent(&event)){
-		if (event.type == SDL_KEYDOWN){
-			SDL_KeyboardEvent Key = event.key;
-			return Key.keysym.scancode;
-		}
-	}
-	return 0;
+void Feature::Set(int NewFeature, int Index){
+	Results[0] = NewFeature;
+	Results[1] = Index;
 }
 
 bool Determine_Location(Position Object, Position Goal){
