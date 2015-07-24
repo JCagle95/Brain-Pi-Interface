@@ -46,14 +46,14 @@ CALIBRATION_STAGE2 = 15
 CALIBRATION_END = 19
 Max_Trials = 50
 Experiment_ID = strftime("%b-%d-%Y_%H-%M-%S",gmtime())
-ipAddress = '127.0.0.1'
+ipAddress = '169.254.0.2'
 port = '/dev/OpenBCI'
 ShutDown = False
 TaskSetting = {'Initiation':1,
-               'Calibration':5,
+               'Calibration':30,
                'Trial Start':2,
-               'Fixation':2,
-               'Trial Duration':5}
+               'Fixation':4,
+               'Trial Duration':8}
 
 print '--------------\n'
 print Experiment_ID + '\n'

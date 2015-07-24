@@ -6,7 +6,7 @@
 
 import sys; sys.path.append('../dependencies')
 import Queue
-import Generic_Generator as gen
+import Open_BCI_Thread as bci
 import scipy.io as sio
 import socket
 import subprocess
@@ -17,6 +17,7 @@ from time import sleep, time, gmtime, strftime
 import timeit
 import numpy as np
 from BCI_Modules import *
+import DataAnalysis as Process
 
 def Run_Feedback():
     # Thread added to active Feedback dispay
@@ -46,16 +47,16 @@ CALIBRATION_STAGE2 = 15
 CALIBRATION_END = 19
 Max_Trials = 50
 Experiment_ID = strftime("%b-%d-%Y_%H-%M-%S",gmtime())
-ipAddress = '127.0.0.1'
+ipAddress = '169.254.0.2'
 port = '/dev/OpenBCI'
 Trial_Type = [[i%4] for i in range(50)]
 shuffle(Trial_Type)
 ShutDown = False
 TaskSetting = {'Initiation':1,
-               'Calibration':5,
+               'Calibration':30,
                'Trial Start':2,
-               'Fixation':2,
-               'Trial Duration':5}
+               'Fixation':4,
+               'Trial Duration':8}
 
 print '--------------\n'
 print Experiment_ID + '\n'
@@ -195,8 +196,8 @@ for x in range(Max_Trials):
     print 'Write "Trial Start"'
     Trigger = np.concatenate((Trigger,np.array([[timeit.default_timer()-EEG_Time,TRIAL_START]])))           
 
-    Max_Movement = np.percentile(Feature,100)
-    Min_Movement = np.percentile(Feature,0)
+    Max_Movement = np.percentile(Feature,90)
+    Min_Movement = np.percentile(Feature,10)
     Classifier = (Movement_Range_Max-Movement_Range_Min)/(Max_Movement-Min_Movement)
 
     # Clean up the Queue to keep Data in real time
