@@ -41,6 +41,3 @@ sudo apt-get install python-scipy python-numpy python-serial
 sudo apt-get install sshfs openssh-server
 sudo gpasswd -a pi fuse
 sudo mkdir /home/pi/Brain-Pi-Interface
-
-ssh-keygen -t rsa
-ssh-copy-id -i ~/.ssh/id_rsa.pub pi@169.254.0.2

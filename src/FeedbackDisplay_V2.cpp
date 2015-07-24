@@ -150,8 +150,8 @@ int main(int, char**){
 	// Obtain Screen Size, Create position values for objects
 	Position Centroid, Ball, Goal;
 	const int SPHERE_SIZE = SCREEN_HEIGHT / 10;
-	const int TARGET_WIDTH = SCREEN_HEIGHT / 4;
-	const int TARGET_HEIGHT = TARGET_WIDTH / 6;
+	const int TARGET_WIDTH = SCREEN_HEIGHT / 10;
+	const int TARGET_HEIGHT = TARGET_WIDTH;
 	Centroid.Set(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, 0, 0);
 	std::string Previous_X, Previous_Y, Current_X, Current_Y;
 	Feature X_Direction,Y_Direction;
@@ -237,16 +237,16 @@ int main(int, char**){
 		}
 		switch (Read_Trial(Trial_Info)){
 		case 0:
-			Goal.Set(0, Centroid.Y - TARGET_WIDTH / 2, TARGET_HEIGHT, TARGET_WIDTH);
+			Goal.Set(0, 0, TARGET_HEIGHT, TARGET_WIDTH);
 			break;
 		case 1:
-			Goal.Set(SCREEN_WIDTH - TARGET_HEIGHT, Centroid.Y - TARGET_WIDTH / 2, TARGET_HEIGHT, TARGET_WIDTH);
+			Goal.Set(SCREEN_WIDTH - TARGET_WIDTH, 0, TARGET_HEIGHT, TARGET_WIDTH);
 			break;
 		case 2:
-			Goal.Set(Centroid.X - TARGET_WIDTH / 2, SCREEN_HEIGHT - TARGET_HEIGHT, TARGET_WIDTH, TARGET_HEIGHT);
+			Goal.Set(0, SCREEN_HEIGHT - TARGET_HEIGHT, TARGET_WIDTH, TARGET_HEIGHT);
 			break;
 		case 3:
-			Goal.Set(Centroid.X - TARGET_WIDTH / 2, 0, TARGET_WIDTH, TARGET_HEIGHT);
+			Goal.Set(SCREEN_WIDTH - TARGET_WIDTH, SCREEN_HEIGHT - TARGET_HEIGHT, TARGET_WIDTH, TARGET_HEIGHT);
 			break;
 		}
 		
