@@ -25,6 +25,22 @@ make -j 4
 sudo make install
 cd ../..
 
+# Copying Essential Files for OpenBCI
+
+sudo cp ../RPi/openbci-usb-serial.rules /etc/udev/rules.d/openbci-usb-serial.rules
+sudo cp ../RPi/cmdline.direct /etc/cmdline.direct
+sudo cp ../RPi/cmdline.normal /etc/cmdline.normal
+sudo cp ../RPi/cmdline.txt /boot/cmdline.txt
+
 # Install Python Essential Packages
 
 sudo apt-get install python-scipy python-numpy python-serial
+
+# Share Folder:
+
+sudo apt-get install sshfs openssh-server
+sudo gpasswd -a pi fuse
+sudo mkdir /home/pi/Brain-Pi-Interface
+
+ssh-keygen -t rsa
+ssh-copy-id -i ~/.ssh/id_rsa.pub pi@169.254.0.2
