@@ -9,9 +9,9 @@ def PowerExtraction(data,SamplingFrequency,FrequencyRange):
     Average_Power_Extracted = np.mean(Power[Frequency_Band])
     return Average_Power_Extracted
 
-def Linear_Regression(Feature,Movement):
-    Slope = (Movement[1]-Movement[0])/(np.percentile(Feature,90)-np.percentile(Feature,10))
-    Offset = Movement[0] - np.percentile(Feature,10)*Slope
+def Linear_Regression(Power,Movement):
+    Slope = (Movement[1]-Movement[0])/(Power[1]-Power[0])
+    Offset = Movement[0] - Power[0]*Slope
     return (Slope,Offset)
 
 # Signal Processing

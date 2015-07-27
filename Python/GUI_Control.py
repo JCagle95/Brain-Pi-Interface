@@ -9,6 +9,12 @@ from scipy.fftpack import fft
 import DataAnalysis as Process
 from time import sleep, time, gmtime, strftime
 import numpy as np
+
+def Start_Chrome(screenWidth,screenHeight):
+    gui.click(x=screenWidth/2, y=screenHeight/30, clicks=3)
+    gui.typewrite('www.google.com\n',interval=0.05)
+    sleep(2)
+    gui.click(x=screenWidth*0.4, y=screenHeight*0.38)
     
 port = '/dev/OpenBCI'
 print '--------------------------------------------\n'

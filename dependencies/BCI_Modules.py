@@ -51,3 +51,6 @@ class Synchronize(object):
         elif (Feed == Message2):
             return 2
         return 3
+
+    def disconnect(self):
+        self.connection.close()
