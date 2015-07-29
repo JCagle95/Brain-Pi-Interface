@@ -5,6 +5,7 @@
 ############################################################
 
 import sys; sys.path.append('../dependencies')
+from glob import glob
 import Queue
 import Generic_Generator as gen
 import Open_BCI_Thread as bci
@@ -27,18 +28,22 @@ def Run_Feedback():
 def FeatureExtraction(Sample,Feature,Data_Array):
     # Append the data
     Data_Array = np.append(Data_Array,Sample,axis=0)
-        
+           
     # Common Average Reference
-    Sample[:,range(1,9)] = Sample[:,range(1,9)]-np.tile(np.mean(Sample[:,range(1,9)],axis=1),(Sample.shape[1]-1,1)).T
+    Sample[:,range(1,9)] = Process.Common_Average_Reference(Sample[:,range(1,9)])
 
-    # Power after Referece
-    Power = abs(fft(Sample[:,Channel]))
-    Feature = np.append(Feature,np.sum(Power[Frequency_Band]))
+    # Feature Extraction
+    if ALPHA:
+        Feature = np.append(Feature,Process.AlphaDifference(Sample,([5,6],[7,8]),250))
+    else:
+        Feature = np.append(Feature,Process.PowerExtraction(Sample,[8,12],250))
+
     return (Feature,Data_Array)
 
 # Defined Task variable
 #### Edit for Testing/Experimenting
 TESTING = True
+ALPHA = False
 ####
 Movement_Range_Min = 5.000
 Movement_Range_Max = -3.000
@@ -50,7 +55,10 @@ CALIBRATION_START = 14
 CALIBRATION_STAGE2 = 15
 CALIBRATION_END = 19
 Max_Trials = 50
-Experiment_ID = strftime("%b-%d-%Y_%H-%M-%S",gmtime())
+Data_Path = '../resource/Recording/'
+Experiment_Date = strftime("%b-%d-%Y_",gmtime())
+Experiment_ID = len(glob(Data_Path + Experiment_Date + '*_Server.mat')) + 1
+
 if not TESTING:
     ipAddress = '169.254.0.2'
 else:
@@ -64,7 +72,7 @@ TaskSetting = {'Initiation':1,
                'Trial Duration':8}
 
 print '--------------\n'
-print Experiment_ID + '\n'
+print Experiment_Date + '\n'
 print '--------------\n'
 
 # Cleanup the content of the text files
@@ -112,11 +120,14 @@ while len(Feature) < 5*TaskSetting['Initiation']:
             EEG_Recording = np.append(EEG_Recording,Sample,axis=0)
 
         # Common Average Reference
-        Sample[:,range(1,9)] = Sample[:,range(1,9)]-np.tile(np.mean(Sample[:,range(1,9)],axis=1),(Sample.shape[1]-1,1)).T
+        Sample[:,range(1,9)] = Process.Common_Average_Reference(Sample[:,range(1,9)])
 
-        # Power after Referece
-        Power = abs(fft(Sample[:,Channel]))
-        Feature = np.append(Feature,np.sum(Power[Frequency_Band]))
+        # Feature Extraction
+        if ALPHA:
+            Feature = np.append(Feature,Process.AlphaDifference(Sample,([5,6],[7,8]),250))
+        else:
+            Feature = np.append(Feature,Process.PowerExtraction(Sample,[8,12],250))
+
 
 Trigger = np.array([[timeit.default_timer()-EEG_Time,CALIBRATION_START]])
 
@@ -196,7 +207,7 @@ for x in range(Max_Trials):
             Feature, EEG_Recording = FeatureExtraction(Sample,Feature,EEG_Recording)
 
             # Classification
-            Y_Direction = str(int(round(Classifier*Feature[len(Feature)-1]+Movement_Range_Min)))+","+str(len(Feature))
+            Y_Direction = str(int(round(Classifier*Feature[len(Feature)-1]+Offset)))+","+str(len(Feature))
             FIFO.Rewrite(Feature_Log,Y_Direction)
             print 'Classifier Results: ' + Y_Direction
             
@@ -228,5 +239,7 @@ for x in range(Max_Trials):
 # Saving the data
 Sync.disconnect()
 Board.stop_streaming()
-sio.savemat(Experiment_ID + '.mat',{'EEG':EEG_Recording,'Trigger':Trigger})
+sio.savemat(Data_Path + Experiment_Date + str(Experiment_ID) + '_Client.mat',{'EEG':EEG_Recording,
+                                                                              'Trigger':Trigger,
+                                                                              'Feature':Feature})
 Board.join()
