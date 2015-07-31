@@ -20,6 +20,7 @@ import timeit
 import numpy as np
 from BCI_Modules import *
 import DataAnalysis as Process
+import json
 
 def Run_Feedback():
     # Thread added to active eedback dispay
@@ -45,8 +46,10 @@ def FeatureExtraction(Sample,Feature,Data_Array):
 TESTING = True
 ALPHA = False
 ####
-Movement_Range_Min = 5.000
-Movement_Range_Max = -3.000
+with open('Configuration.json', 'r') as infile:
+    Configuration = json.load(infile)
+Movement_Range_Min = -3.000
+Movement_Range_Max = 5.000
 Channel = 4
 TRIAL_START = 254
 TRIAL_END = 192
@@ -58,6 +61,8 @@ Max_Trials = 50
 Data_Path = '../resource/Recording/'
 Experiment_Date = strftime("%b-%d-%Y_",gmtime())
 Experiment_ID = len(glob(Data_Path + Experiment_Date + '*_Server.mat')) + 1
+Trial_Type = Configuration['Trial_Type']
+TaskSetting = Configuration['TaskSetting']
 
 if not TESTING:
     ipAddress = '169.254.0.2'
@@ -65,11 +70,6 @@ else:
     ipAddress = '127.0.0.1'
 port = '/dev/OpenBCI'
 ShutDown = False
-TaskSetting = {'Initiation':1,
-               'Calibration':30,
-               'Trial Start':2,
-               'Fixation':4,
-               'Trial Duration':8}
 
 print '--------------\n'
 print Experiment_Date + '\n'
@@ -207,7 +207,10 @@ for x in range(Max_Trials):
             Feature, EEG_Recording = FeatureExtraction(Sample,Feature,EEG_Recording)
 
             # Classification
-            Y_Direction = str(int(round(Classifier*Feature[len(Feature)-1]+Offset)))+","+str(len(Feature))
+            if Trial_Type[x][0] == 0 or Trial_Type[x][0] == 1:
+                Y_Direction = str(int(round(Classifier*Feature[len(Feature)-1]+Offset)))+","+str(len(Feature))
+            else:
+                Y_Direction = str(-int(round(Classifier*Feature[len(Feature)-1]+Offset)))+","+str(len(Feature))
             FIFO.Rewrite(Feature_Log,Y_Direction)
             print 'Classifier Results: ' + Y_Direction
             

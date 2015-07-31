@@ -20,6 +20,7 @@ import timeit
 import numpy as np
 from BCI_Modules import *
 import DataAnalysis as Process
+import json
 
 def Run_Feedback():
     # Thread added to active Feedback dispay
@@ -45,8 +46,8 @@ def FeatureExtraction(Sample,Feature,Data_Array):
 TESTING = True
 ALPHA = False
 ####
-Movement_Range_Min = 5.000
-Movement_Range_Max = -3.000
+Movement_Range_Min = -3.000
+Movement_Range_Max = 5.000
 Channel = 4
 TRIAL_START = 254
 TRIAL_END = 192
@@ -72,6 +73,10 @@ TaskSetting = {'Initiation':1,
                'Trial Start':2,
                'Fixation':4,
                'Trial Duration':8}
+Configuration = {'Trial_Type':Trial_Type,
+                 'TaskSetting':TaskSetting}
+with open('Configuration.json', 'w') as outfile:
+    json.dump(Configuration, outfile)
 
 print '--------------\n'
 print Experiment_Date + '\n'
@@ -244,7 +249,10 @@ for x in range(Max_Trials):
             Feature, EEG_Recording = FeatureExtraction(Sample,Feature,EEG_Recording)
 
             # Classification
-            X_Direction = str(int(round(Classifier*Feature[len(Feature)-1]+Offset)))+","+str(len(Feature))
+            if Trial_Type[x][0] == 0 or Trial_Type[x][0] == 2:
+                X_Direction = str(int(round(Classifier*Feature[len(Feature)-1]+Offset)))+","+str(len(Feature))
+            else:
+                X_Direction = str(-int(round(Classifier*Feature[len(Feature)-1]+Offset)))+","+str(len(Feature))
             FIFO.Rewrite(Feature_Log,X_Direction)
             print 'Classifier Results: ' + X_Direction
             
