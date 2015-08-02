@@ -37,7 +37,7 @@ def FeatureExtraction(Sample,Feature,Data_Array):
     if ALPHA:
         Feature = np.append(Feature,Process.AlphaDifference(Sample,([5,6],[7,8]),250))
     else:
-        Feature = np.append(Feature,Process.PowerExtraction(Sample,[8,12],250))
+        Feature = np.append(Feature,Process.PowerExtraction(Sample[:,3],[8,12],250))
 
     return (Feature,Data_Array)
 
@@ -104,11 +104,11 @@ Frequency_Band = np.logical_and(Frequency>8,Frequency<12)
 Feature = np.array([])
 if not TESTING:
     Board = bci.OpenBCIBoard_Recording(port=port,baud=115200,Queue=Data_Queue,thread=True)
-    EEG_Time = timeit.default_timer()
     Board.start()
 else:
-    Board = gen.Generic_Generator(Queue=Data_Queue,binSize=50)
-    EEG_Time = timeit.default_timer()
+    Random_Data = sio.loadmat('GenericData.mat')
+    SamplingData = Random_Data['GenericData']
+    Board = gen.Generic_Generator(Queue=Data_Queue,binSize=50,Data=SamplingData)
     Board.start()
 
 while len(Feature) < 5*TaskSetting['Initiation']:
@@ -126,10 +126,10 @@ while len(Feature) < 5*TaskSetting['Initiation']:
         if ALPHA:
             Feature = np.append(Feature,Process.AlphaDifference(Sample,([5,6],[7,8]),250))
         else:
-            Feature = np.append(Feature,Process.PowerExtraction(Sample,[8,12],250))
+            Feature = np.append(Feature,Process.PowerExtraction(Sample[:,3],[8,12],250))
 
 
-Trigger = np.array([[timeit.default_timer()-EEG_Time,CALIBRATION_START]])
+Trigger = np.array([[len(Feature),CALIBRATION_START]])
 
 print "Calibration Stage 1"
 Current_Index = len(Feature)
@@ -149,7 +149,7 @@ if FIFO.Check(Client_Log,"Display End"):
     Board.stop_streaming()
     sio.savemat(Experiment_ID + '.mat',{'EEG':EEG_Recording,'Trigger':Trigger})
     Board.join()
-Trigger = np.concatenate((Trigger,np.array([[timeit.default_timer()-EEG_Time,CALIBRATION_STAGE2]])))
+Trigger = np.concatenate((Trigger,np.array([[len(Feature),CALIBRATION_STAGE2]])))
 
 while len(Feature)-Current_Index < 5*TaskSetting['Calibration']:
     if not Data_Queue.empty():
@@ -163,7 +163,7 @@ if FIFO.Check(Client_Log,"Display End"):
     Board.stop_streaming()
     sio.savemat(Experiment_ID + '.mat',{'EEG':EEG_Recording,'Trigger':Trigger})
     Board.join()
-Trigger = np.concatenate((Trigger,np.array([[timeit.default_timer()-EEG_Time,CALIBRATION_END]])))
+Trigger = np.concatenate((Trigger,np.array([[len(Feature),CALIBRATION_END]])))
 
 # Artificial Power Setting
 Min_Power = 0
@@ -182,7 +182,7 @@ for x in range(Max_Trials):
             Sample = Data_Queue.get()
             Feature,EEG_Recording = FeatureExtraction(Sample,Feature,EEG_Recording)
     
-    Trigger = np.concatenate((Trigger,np.array([[timeit.default_timer()-EEG_Time,TRIAL_START]])))           
+    Trigger = np.concatenate((Trigger,np.array([[len(Feature),TRIAL_START]])))           
 
     Max_Power = np.percentile(Feature[range(len(Feature)-5*TaskSetting['Fixation']-5*TaskSetting['Trial Start'],len(Feature))],90)
     if not Max_Power == Min_Power:
@@ -215,7 +215,7 @@ for x in range(Max_Trials):
             print 'Classifier Results: ' + Y_Direction
             
         if (FIFO.Check(Client_Log,"Complete")):
-            Trigger = np.concatenate((Trigger,np.array([[timeit.default_timer()-EEG_Time,TRIAL_SUCCESS]])))
+            Trigger = np.concatenate((Trigger,np.array([[len(Feature),TRIAL_SUCCESS]])))
             FIFO.Erase(Client_Log)
 
         if (FIFO.Check(Client_Log,"Display End")):
@@ -228,8 +228,10 @@ for x in range(Max_Trials):
         break
 
     Min_Power = np.percentile(Feature[range(len(Feature)-5*TaskSetting['Fixation']-5*TaskSetting['Trial Start'],len(Feature))],10)
+    if Min_Power > Max_Power:
+        Min_Power = Max_Power * 0.5
 
-    Trigger = np.concatenate((Trigger,np.array([[timeit.default_timer()-EEG_Time,TRIAL_END]])))
+    Trigger = np.concatenate((Trigger,np.array([[len(Feature),TRIAL_END]])))
     Current_Index = len(Feature)
     
     # Fixation Period

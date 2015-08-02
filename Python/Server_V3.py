@@ -37,7 +37,7 @@ def FeatureExtraction(Sample,Feature,Data_Array):
     if ALPHA:
         Feature = np.append(Feature,Process.AlphaDifference(Sample,([5,6],[7,8]),250))
     else:
-        Feature = np.append(Feature,Process.PowerExtraction(Sample,[8,12],250))
+        Feature = np.append(Feature,Process.PowerExtraction(Sample[:,3],[8,12],250))
 
     return (Feature,Data_Array)
 
@@ -48,14 +48,13 @@ ALPHA = False
 ####
 Movement_Range_Min = -3.000
 Movement_Range_Max = 5.000
-Channel = 4
 TRIAL_START = 254
 TRIAL_END = 192
 TRIAL_SUCCESS = 301
 CALIBRATION_START = 14
 CALIBRATION_STAGE2 = 15
 CALIBRATION_END = 19
-Max_Trials = 50
+Max_Trials = 20
 Data_Path = '../resource/Recording/'
 Experiment_Date = strftime("%b-%d-%Y_",gmtime())
 Experiment_ID = len(glob(Data_Path + Experiment_Date + '*_Server.mat')) + 1
@@ -69,12 +68,13 @@ Trial_Type = [[i%4] for i in range(50)]
 shuffle(Trial_Type)
 ShutDown = False
 TaskSetting = {'Initiation':1,
-               'Calibration':30,
-               'Trial Start':2,
-               'Fixation':4,
+               'Calibration':10,
+               'Trial Start':1,
+               'Fixation':5,
                'Trial Duration':8}
 Configuration = {'Trial_Type':Trial_Type,
-                 'TaskSetting':TaskSetting}
+                 'TaskSetting':TaskSetting,
+                 'Max_Trials':Max_Trials}
 with open('Configuration.json', 'w') as outfile:
     json.dump(Configuration, outfile)
 
@@ -136,11 +136,11 @@ Frequency_Band = np.logical_and(Frequency>8,Frequency<12)
 Feature = np.array([])
 if not TESTING:
     Board = bci.OpenBCIBoard_Recording(port=port,baud=115200,Queue=Data_Queue,thread=True)
-    EEG_Time = timeit.default_timer()
     Board.start()
 else:
-    Board = gen.Generic_Generator(Queue=Data_Queue,binSize=50)
-    EEG_Time = timeit.default_timer()
+    Random_Data = sio.loadmat('GenericData.mat')
+    SamplingData = Random_Data['GenericData']
+    Board = gen.Generic_Generator(Queue=Data_Queue,binSize=50,Data=SamplingData)
     Board.start()
 
 while len(Feature) < 5*TaskSetting['Initiation']:
@@ -158,11 +158,11 @@ while len(Feature) < 5*TaskSetting['Initiation']:
         if ALPHA:
             Feature = np.append(Feature,Process.AlphaDifference(Sample,([5,6],[7,8]),250))
         else:
-            Feature = np.append(Feature,Process.PowerExtraction(Sample,[8,12],250))
+            Feature = np.append(Feature,Process.PowerExtraction(Sample[:,3],[8,12],250))
 
 
 FIFO.Rewrite(Trigger_Log,"Calibration On")
-Trigger = np.array([[timeit.default_timer()-EEG_Time,CALIBRATION_START]])
+Trigger = np.array([[len(Feature),CALIBRATION_START]])
 
 print "Calibration Stage 1"
 Current_Index = len(Feature)
@@ -183,7 +183,7 @@ if FIFO.Check(Feedback_Log[0],"Display End"):
     Board.stop_streaming()
     sio.savemat(Experiment_ID + '.mat',{'EEG':EEG_Recording,'Trigger':Trigger})
     Board.join()
-Trigger = np.concatenate((Trigger,np.array([[timeit.default_timer()-EEG_Time,CALIBRATION_STAGE2]])))
+Trigger = np.concatenate((Trigger,np.array([[len(Feature),CALIBRATION_STAGE2]])))
 
 while len(Feature)-Current_Index < 5*TaskSetting['Calibration']:
     if not Data_Queue.empty():
@@ -198,7 +198,7 @@ if FIFO.Check(Feedback_Log[0],"Display End"):
     Board.stop_streaming()
     sio.savemat(Experiment_ID + '.mat',{'EEG':EEG_Recording,'Trigger':Trigger})
     Board.join()
-Trigger = np.concatenate((Trigger,np.array([[timeit.default_timer()-EEG_Time,CALIBRATION_END]])))
+Trigger = np.concatenate((Trigger,np.array([[len(Feature),CALIBRATION_END]])))
 
 Min_Power = 0
 
@@ -224,12 +224,15 @@ for x in range(Max_Trials):
     # Signal Start
     FIFO.Rewrite(Trigger_Log,"Trial Start")
     print 'Write "Trial Start"'
-    Trigger = np.concatenate((Trigger,np.array([[timeit.default_timer()-EEG_Time,TRIAL_START]])))           
+    Trigger = np.concatenate((Trigger,np.array([[len(Feature),TRIAL_START]])))           
 
     Max_Power = np.percentile(Feature[range(len(Feature)-5*TaskSetting['Fixation']-5*TaskSetting['Trial Start'],len(Feature))],90)
+    print Max_Power
     if not Max_Power == Min_Power:
         Classifier, Offset = Process.Linear_Regression((Min_Power,Max_Power),(Movement_Range_Min,Movement_Range_Max))
+        print Classifier
     else:
+        print 'ERROR'
         Classifier = 0
         Offset = 0
 
@@ -254,10 +257,10 @@ for x in range(Max_Trials):
             else:
                 X_Direction = str(-int(round(Classifier*Feature[len(Feature)-1]+Offset)))+","+str(len(Feature))
             FIFO.Rewrite(Feature_Log,X_Direction)
-            print 'Classifier Results: ' + X_Direction
+            #print 'Classifier Results: ' + X_Direction
             
         if (FIFO.Check(Feedback_Log[0],"Complete")):
-            Trigger = np.concatenate((Trigger,np.array([[timeit.default_timer()-EEG_Time,TRIAL_SUCCESS]])))
+            Trigger = np.concatenate((Trigger,np.array([[len(Feature),TRIAL_SUCCESS]])))
             FIFO.Erase(Feedback_Log[0])
 
         if (FIFO.Check(Feedback_Log[0],"Display End")):
@@ -270,11 +273,14 @@ for x in range(Max_Trials):
         break
 
     Min_Power = np.percentile(Feature[range(len(Feature)-5*TaskSetting['Fixation']-5*TaskSetting['Trial Start'],len(Feature))],10)
-
+    if Min_Power > Max_Power:
+        Min_Power = Max_Power * 0.5
+    print Min_Power
+    
     # Signal the end of trial
     FIFO.Rewrite(Trigger_Log,"Trial End")
     print 'Trial End'
-    Trigger = np.concatenate((Trigger,np.array([[timeit.default_timer()-EEG_Time,TRIAL_END]])))
+    Trigger = np.concatenate((Trigger,np.array([[len(Feature),TRIAL_END]])))
     Current_Index = len(Feature)
     
     # Fixation Period
