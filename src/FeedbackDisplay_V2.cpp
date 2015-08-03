@@ -12,13 +12,13 @@
 int SCREEN_WIDTH;
 int SCREEN_HEIGHT;
 
-bool Sync_Wait(std::string File, std::string Message, SDL_Event event){
+bool Sync_Wait(std::string File, std::string Message, std::string Check, SDL_Event event){
 	std::string New;
 	while(New != Message){
 		std::ifstream FileInput (File);
 		getline(FileInput,New);
 		FileInput.close();
-		if (EventDetection(event) == SDL_SCANCODE_Q)
+		if (EventDetection(event) == SDL_SCANCODE_Q || New == Check)
 			return false;
 	}
 	return true;
@@ -96,6 +96,7 @@ int main(int, char**){
 	// Initialize all the Images and Texts Pointers
 	const std::string resPath = getResourcePath("FeedbackDisplay");
 	SDL_Texture *instruction = loadTexture(resPath + "instruction.png", renderer);
+	SDL_Texture *trial_background = loadTexture(resPath + "background.png", renderer);
 	SDL_Texture *background = loadTexture(resPath + "SyncStart.png", renderer);
 	SDL_Texture *background2 = loadTexture(resPath + "SyncEnd.png", renderer);
 	SDL_Texture *instruction2 = loadTexture(resPath + "instruction2.png", renderer);
@@ -108,11 +109,12 @@ int main(int, char**){
 	SDL_Event event;
 	
 	if (background == nullptr || background2 == nullptr || sphere == nullptr || instruction2 == nullptr || Target == nullptr || sphere2 == nullptr || Target2 == nullptr ||
-		trialStart == nullptr || trialEnd == nullptr || instruction == nullptr)
+		trialStart == nullptr || trialEnd == nullptr || instruction == nullptr || trial_background == nullptr )
 	{
 		SDL_DestroyWindow(window);
 		SDL_DestroyRenderer(renderer);
 		SDL_DestroyTexture(background);
+		SDL_DestroyTexture(trial_background);
 		SDL_DestroyTexture(instruction);
 		SDL_DestroyTexture(sphere);
 		SDL_DestroyTexture(background2);
@@ -138,7 +140,7 @@ int main(int, char**){
 	const std::string Trigger_Log = getResourcePath("FIFO") + "Trigger_Log.txt";
 	const std::string Feedback = getResourcePath("FIFO") + "Feedback_Log_0.txt";
 	Sync_Send(Feedback, "Timer on");
-	Sync_Wait(Trigger_Log, "All Set", event);
+	Sync_Wait(Trigger_Log, "All Set", "ALL FINISH", event);
 	SDL_RenderClear(renderer);
 	renderTexture(background2, renderer, (SCREEN_WIDTH - SCREEN_HEIGHT) / 2, 0, SCREEN_HEIGHT, SCREEN_HEIGHT);
 	SDL_RenderPresent(renderer);
@@ -152,18 +154,27 @@ int main(int, char**){
 	const int SPHERE_SIZE = SCREEN_HEIGHT / 10;
 	const int TARGET_WIDTH = SCREEN_HEIGHT / 10;
 	const int TARGET_HEIGHT = TARGET_WIDTH;
+	int Margin;
 	Centroid.Set(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, 0, 0);
 	std::string Previous_X, Previous_Y, Current_X, Current_Y;
 	Feature X_Direction,Y_Direction;
 	X_Direction.Set(1,0);
-	X_Direction.Set(1,0);
+	Y_Direction.Set(1,0);
+
+
+	// Maintain the Field of movement within Square
+	if (SCREEN_HEIGHT < SCREEN_WIDTH)
+		Margin = (SCREEN_WIDTH - SCREEN_HEIGHT) / 2;
+	else
+		Margin = 0;
 
 	// Calibration
-	if (!Sync_Wait(Trigger_Log, "Calibration On", event)){
+	if (!Sync_Wait(Trigger_Log, "Calibration On", "ALL FINISH", event)){
 		Sync_Send(Feedback,"Display End");
 		SDL_DestroyWindow(window);
 		SDL_DestroyRenderer(renderer);
 		SDL_DestroyTexture(background);
+		SDL_DestroyTexture(trial_background);
 		SDL_DestroyTexture(instruction);
 		SDL_DestroyTexture(sphere);
 		SDL_DestroyTexture(background2);
@@ -178,13 +189,14 @@ int main(int, char**){
 	SDL_RenderClear(renderer);
 	renderTexture(instruction, renderer, (SCREEN_WIDTH - SCREEN_HEIGHT) / 2, 0, SCREEN_HEIGHT, SCREEN_HEIGHT);
 	SDL_RenderPresent(renderer);	
-	if (!Sync_Wait(Trigger_Log, "Calibration Stage2", event)){
+	if (!Sync_Wait(Trigger_Log, "Calibration Stage2", "ALL FINISH", event)){
 		Sync_Send(Feedback,"Display End");
 		SDL_DestroyWindow(window);
 		SDL_DestroyRenderer(renderer);
 		SDL_DestroyTexture(background);
 		SDL_DestroyTexture(instruction);
 		SDL_DestroyTexture(sphere);
+		SDL_DestroyTexture(trial_background);
 		SDL_DestroyTexture(background2);
 		SDL_DestroyTexture(sphere2);
 		SDL_DestroyTexture(Target2);
@@ -197,7 +209,7 @@ int main(int, char**){
 	SDL_RenderClear(renderer);
 	renderTexture(instruction2, renderer, (SCREEN_WIDTH - SCREEN_HEIGHT) / 2, 0, SCREEN_HEIGHT, SCREEN_HEIGHT);
 	SDL_RenderPresent(renderer);	
-	if (!Sync_Wait(Trigger_Log, "Calibration End", event)){
+	if (!Sync_Wait(Trigger_Log, "Calibration End", "ALL FINISH", event)){
 		Sync_Send(Feedback,"Display End");
 		SDL_DestroyWindow(window);
 		SDL_DestroyRenderer(renderer);
@@ -206,6 +218,7 @@ int main(int, char**){
 		SDL_DestroyTexture(sphere);
 		SDL_DestroyTexture(background2);
 		SDL_DestroyTexture(sphere2);
+		SDL_DestroyTexture(trial_background);
 		SDL_DestroyTexture(Target2);
 		SDL_DestroyTexture(Target);
 		SDL_DestroyTexture(instruction2);
@@ -220,13 +233,14 @@ int main(int, char**){
 
 	while(!(Sync_Check(Trigger_Log,"ALL FINISH")||Finishing)){
 		// Determine the type of Trial
-		if (!Sync_Wait(Trigger_Log, "Ready", event)){
+		if (!Sync_Wait(Trigger_Log, "Ready", "ALL FINISH", event)){
 			Sync_Send(Feedback,"Display End");
 			SDL_DestroyWindow(window);
 			SDL_DestroyRenderer(renderer);
 			SDL_DestroyTexture(background);
 			SDL_DestroyTexture(instruction);
 			SDL_DestroyTexture(sphere);
+			SDL_DestroyTexture(trial_background);
 			SDL_DestroyTexture(background2);
 			SDL_DestroyTexture(sphere2);
 			SDL_DestroyTexture(Target2);
@@ -237,16 +251,16 @@ int main(int, char**){
 		}
 		switch (Read_Trial(Trial_Info)){
 		case 0:
-			Goal.Set(0, 0, TARGET_HEIGHT, TARGET_WIDTH);
+			Goal.Set(Margin, 0, TARGET_HEIGHT, TARGET_WIDTH);
 			break;
 		case 1:
-			Goal.Set(SCREEN_WIDTH - TARGET_WIDTH, 0, TARGET_HEIGHT, TARGET_WIDTH);
+			Goal.Set(SCREEN_WIDTH - Margin - TARGET_WIDTH, 0, TARGET_HEIGHT, TARGET_WIDTH);
 			break;
 		case 2:
-			Goal.Set(0, SCREEN_HEIGHT - TARGET_HEIGHT, TARGET_WIDTH, TARGET_HEIGHT);
+			Goal.Set(Margin, SCREEN_HEIGHT - TARGET_HEIGHT, TARGET_WIDTH, TARGET_HEIGHT);
 			break;
 		case 3:
-			Goal.Set(SCREEN_WIDTH - TARGET_WIDTH, SCREEN_HEIGHT - TARGET_HEIGHT, TARGET_WIDTH, TARGET_HEIGHT);
+			Goal.Set(SCREEN_WIDTH - Margin - TARGET_WIDTH, SCREEN_HEIGHT - TARGET_HEIGHT, TARGET_WIDTH, TARGET_HEIGHT);
 			break;
 		}
 		
@@ -254,13 +268,14 @@ int main(int, char**){
 		SDL_RenderClear(renderer);
 		renderTexture(trialStart, renderer, (SCREEN_WIDTH-SCREEN_HEIGHT)/2, 0, SCREEN_HEIGHT, SCREEN_HEIGHT);
 		SDL_RenderPresent(renderer);
-		if (!Sync_Wait(Trigger_Log,"Trial Start", event)){
+		if (!Sync_Wait(Trigger_Log,"Trial Start", "ALL FINISH", event)){
 			Sync_Send(Feedback,"Display End");
 			SDL_DestroyWindow(window);
 			SDL_DestroyRenderer(renderer);
 			SDL_DestroyTexture(background);
 			SDL_DestroyTexture(instruction);
 			SDL_DestroyTexture(sphere);
+			SDL_DestroyTexture(trial_background);
 			SDL_DestroyTexture(background2);
 			SDL_DestroyTexture(sphere2);
 			SDL_DestroyTexture(Target2);
@@ -286,8 +301,9 @@ int main(int, char**){
 
 				for (int rate = 0; rate < 10; rate++){
 					Ball.Translocation(X_Direction.Results[0],Y_Direction.Results[0]);
-					Ball.rangeCheck(SCREEN_WIDTH,SCREEN_HEIGHT);
+					Ball.rangeCheck(Margin, SCREEN_WIDTH - Margin, 0, SCREEN_HEIGHT);
 					SDL_RenderClear(renderer);
+					renderTexture(trial_background, renderer, Margin, 0, SCREEN_HEIGHT, SCREEN_HEIGHT);
 					renderTexture(sphere, renderer, Ball.X, Ball.Y, Ball.W, Ball.H);
 					renderTexture(Target, renderer, Goal.X, Goal.Y, Goal.W, Goal.H);
 					SDL_RenderPresent(renderer);
@@ -295,6 +311,7 @@ int main(int, char**){
 						Next_Trial = true;
 						rate = 10;
 						SDL_RenderClear(renderer);
+						renderTexture(trial_background, renderer, Margin, 0, SCREEN_HEIGHT, SCREEN_HEIGHT);
 						renderTexture(sphere2, renderer, Ball.X, Ball.Y, Ball.W, Ball.H);
 						renderTexture(Target2, renderer, Goal.X, Goal.Y, Goal.W, Goal.H);
 						SDL_RenderPresent(renderer);
@@ -323,13 +340,14 @@ int main(int, char**){
 		SDL_RenderClear(renderer);
 		renderTexture(trialEnd, renderer, (SCREEN_WIDTH-SCREEN_HEIGHT)/2, 0, SCREEN_HEIGHT, SCREEN_HEIGHT);
 		SDL_RenderPresent(renderer);
-		if (!Sync_Wait(Trigger_Log,"Trial End", event)){
+		if (!Sync_Wait(Trigger_Log,"Trial End", "ALL FINISH", event)){
 			Sync_Send(Feedback,"Display End");
 			SDL_DestroyWindow(window);
 			SDL_DestroyRenderer(renderer);
 			SDL_DestroyTexture(background);
 			SDL_DestroyTexture(instruction);
 			SDL_DestroyTexture(sphere);
+			SDL_DestroyTexture(trial_background);
 			SDL_DestroyTexture(background2);
 			SDL_DestroyTexture(sphere2);
 			SDL_DestroyTexture(Target2);
@@ -347,6 +365,7 @@ int main(int, char**){
 	SDL_DestroyTexture(background);
 	SDL_DestroyTexture(instruction);
 	SDL_DestroyTexture(sphere);
+	SDL_DestroyTexture(trial_background);
 	SDL_DestroyTexture(background2);
 	SDL_DestroyTexture(sphere2);
 	SDL_DestroyTexture(Target2);
